@@ -14,7 +14,7 @@
 // masing-masing penyedia; sesuaikan konstanta MODELS jika model ini sudah usang.
 const MODELS = {
   anthropic: 'claude-sonnet-4-6',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.6-flash',
   openai: 'gpt-4o-mini'
 };
 
