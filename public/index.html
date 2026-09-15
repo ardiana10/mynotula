@@ -331,6 +331,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js"></script>
+
 <script>
 (function(){
   // ---------- Konfigurasi pengelompokan paragraf ----------
@@ -742,7 +744,7 @@
     actions.className = 'notulen-actions';
     const dlBtn = document.createElement('button');
     dlBtn.className = 'btn btn-primary notulen-download-btn';
-    dlBtn.textContent = 'Unduh Notulen (.txt)';
+    dlBtn.textContent = 'Unduh Notulen (.docx)';
     dlBtn.addEventListener('click', () => downloadNotulen(data));
     actions.appendChild(dlBtn);
     wrap.appendChild(actions);
@@ -751,25 +753,396 @@
     el.notulenContent.appendChild(wrap);
   }
 
-  function downloadNotulen(data){
+  async function downloadNotulen(data){
     const title = el.meetingTitle.value.trim() || 'Rapat Tanpa Judul';
-    const dateStr = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
-    let content = `NOTULEN RAPAT\nJudul: ${title}\nTanggal: ${dateStr}\n\n`;
-    content += `RINGKASAN\n${data.ringkasan || '-'}\n\n`;
-    content += `POIN PENTING\n`;
-    (data.poin_penting||[]).forEach(p => content += `- ${p}\n`);
-    content += `\nKEPUTUSAN\n`;
-    (data.keputusan||[]).forEach(p => content += `- ${p}\n`);
-    content += `\nTINDAK LANJUT\n`;
-    (data.tindak_lanjut||[]).forEach(t => content += `- ${t.tugas || '-'} | PIC: ${t.penanggung_jawab || '-'} | Tenggat: ${t.tenggat || '-'}\n`);
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const dateStr = new Date().toLocaleDateString('id-ID', {
+      day:'numeric',
+      month:'long',
+      year:'numeric'
+    });
+
+    const {
+      Document,
+      Packer,
+      Paragraph,
+      TextRun,
+      HeadingLevel,
+      AlignmentType,
+      Table,
+      TableRow,
+      TableCell,
+      WidthType,
+      BorderStyle
+    } = docx;
+
+    // ---------- Helper ----------
+    function paragraphText(text, options = {}){
+      return new Paragraph({
+        children: [
+          new TextRun({
+            text: text || '-',
+            font: 'Arial',
+            size: 22,
+            ...options
+          })
+        ],
+        spacing: {
+          after: 120
+        }
+      });
+    }
+
+    function numberedParagraph(text){
+      return new Paragraph({
+        text: text || '-',
+        numbering: {
+          reference: 'notulen-numbering',
+          level: 0
+        },
+        style: 'Normal',
+        spacing: {
+          after: 100
+        }
+      });
+    }
+
+    function sectionHeading(text){
+      return new Paragraph({
+        text,
+        heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: 280,
+          after: 140
+        }
+      });
+    }
+
+    // ---------- Metadata ----------
+    const metadata = [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'Judul Rapat',
+            bold: true,
+            font: 'Arial',
+            size: 22
+          }),
+          new TextRun({
+            text: ` : ${title}`,
+            font: 'Arial',
+            size: 22
+          })
+        ],
+        spacing: { after: 80 }
+      }),
+
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'Tanggal',
+            bold: true,
+            font: 'Arial',
+            size: 22
+          }),
+          new TextRun({
+            text: ` : ${dateStr}`,
+            font: 'Arial',
+            size: 22
+          })
+        ],
+        spacing: { after: 80 }
+      }),
+
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'Durasi',
+            bold: true,
+            font: 'Arial',
+            size: 22
+          }),
+          new TextRun({
+            text: ` : ${formatTime(getElapsedSec())}`,
+            font: 'Arial',
+            size: 22
+          })
+        ],
+        spacing: { after: 180 }
+      })
+    ];
+
+    // ---------- Ringkasan ----------
+    const children = [];
+
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'NOTULEN RAPAT',
+            bold: true,
+            font: 'Arial',
+            size: 32
+          })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          after: 300
+        }
+      })
+    );
+
+    children.push(...metadata);
+
+    children.push(sectionHeading('Ringkasan'));
+
+    children.push(
+      paragraphText(data.ringkasan || 'Tidak ada ringkasan.')
+    );
+
+    // ---------- Poin Penting ----------
+    children.push(sectionHeading('Poin Penting'));
+
+    if(data.poin_penting && data.poin_penting.length){
+      data.poin_penting.forEach(pt => {
+        children.push(numberedParagraph(pt));
+      });
+    } else {
+      children.push(
+        paragraphText('Tidak ada poin khusus yang tercatat.')
+      );
+    }
+
+    // ---------- Keputusan ----------
+    children.push(sectionHeading('Keputusan'));
+
+    if(data.keputusan && data.keputusan.length){
+      data.keputusan.forEach(pt => {
+        children.push(numberedParagraph(pt));
+      });
+    } else {
+      children.push(
+        paragraphText('Tidak ada keputusan eksplisit yang tercatat.')
+      );
+    }
+
+    // ---------- Tindak Lanjut ----------
+    children.push(sectionHeading('Tindak Lanjut'));
+
+    const tableRows = [];
+
+    // Header tabel
+    tableRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Tugas',
+                    bold: true,
+                    font: 'Arial',
+                    size: 20
+                  })
+                ]
+              })
+            ]
+          }),
+
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Penanggung Jawab',
+                    bold: true,
+                    font: 'Arial',
+                    size: 20
+                  })
+                ]
+              })
+            ]
+          }),
+
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Tenggat',
+                    bold: true,
+                    font: 'Arial',
+                    size: 20
+                  })
+                ]
+              })
+            ]
+          })
+        ]
+      })
+    );
+
+    if(data.tindak_lanjut && data.tindak_lanjut.length){
+      data.tindak_lanjut.forEach(item => {
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [
+                  paragraphText(item.tugas || '-')
+                ]
+              }),
+
+              new TableCell({
+                children: [
+                  paragraphText(item.penanggung_jawab || '-')
+                ]
+              }),
+
+              new TableCell({
+                children: [
+                  paragraphText(item.tenggat || '-')
+                ]
+              })
+            ]
+          })
+        );
+      });
+    } else {
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 3,
+              children: [
+                paragraphText('Tidak ada tindak lanjut yang tercatat.')
+              ]
+            })
+          ]
+        })
+      );
+    }
+
+    children.push(
+      new Table({
+        width: {
+          size: 100,
+          type: WidthType.PERCENTAGE
+        },
+        rows: tableRows,
+        borders: {
+          top: {
+            style: BorderStyle.SINGLE,
+            size: 1
+          },
+          bottom: {
+            style: BorderStyle.SINGLE,
+            size: 1
+          },
+          left: {
+            style: BorderStyle.SINGLE,
+            size: 1
+          },
+          right: {
+            style: BorderStyle.SINGLE,
+            size: 1
+          },
+          insideHorizontal: {
+            style: BorderStyle.SINGLE,
+            size: 1
+          },
+          insideVertical: {
+            style: BorderStyle.SINGLE,
+            size: 1
+          }
+        }
+      })
+    );
+
+    // ---------- Dokumen ----------
+    const document = new Document({
+      numbering: {
+        config: [
+          {
+            reference: 'notulen-numbering',
+            levels: [
+              {
+                level: 0,
+                format: 'decimal',
+                text: '%1.',
+                alignment: AlignmentType.LEFT
+              }
+            ]
+          }
+        ]
+      },
+
+      styles: {
+        default: {
+          document: {
+            run: {
+              font: 'Arial',
+              size: 22
+            },
+            paragraph: {
+              spacing: {
+                line: 276
+              }
+            }
+          }
+        },
+
+        paragraphStyles: [
+          {
+            id: 'Normal',
+            name: 'Normal',
+            basedOn: 'Normal',
+            next: 'Normal',
+            run: {
+              font: 'Arial',
+              size: 22
+            },
+            paragraph: {
+              spacing: {
+                line: 276,
+                after: 120
+              }
+            }
+          }
+        ]
+      },
+
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: {
+                top: 1000,
+                right: 1000,
+                bottom: 1000,
+                left: 1000
+              }
+            }
+          },
+
+          children
+        }
+      ]
+    });
+
+    // ---------- Buat file DOCX ----------
+    const blob = await Packer.toBlob(document);
+
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${title.replace(/[^a-z0-9]+/gi,'_')}_notulen.txt`;
+    a.download = `${title.replace(/[^a-z0-9]+/gi, '_')}_notulen.docx`;
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+
     URL.revokeObjectURL(url);
   }
 
