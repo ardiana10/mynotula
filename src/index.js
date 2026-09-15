@@ -9,7 +9,7 @@
 // Nama model di bawah ini bisa berubah sewaktu-waktu mengikuti rilis terbaru
 // masing-masing penyedia; sesuaikan konstanta MODELS jika model ini sudah usang.
 const MODELS = {
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.6-flash',
   openai: 'gpt-4o-mini',
 };
 
