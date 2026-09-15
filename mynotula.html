@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notula — Notulensi Rapat Otomatis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #171B22;
+    --ink-2: #1F242E;
+    --ink-3: #2A3140;
+    --paper: #EAE4D6;
+    --paper-2: #F2EDE1;
+    --paper-line: #D2C9B4;
+    --teal: #1F6F78;
+    --teal-deep: #164F56;
+    --teal-bright: #2E96A1;
+    --record: #C1502E;
+    --record-bright: #DE6A45;
+    --amber: #B8842E;
+    --muted: #8B92A0;
+    --muted-dark: #6E7688;
+    --cream-text: #EFEAE0;
+    --success: #4C7A52;
+    --danger-bg: #3A2620;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'IBM Plex Sans', sans-serif;
+    background:var(--ink);
+    color:var(--cream-text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:24px;
+    padding:14px 28px;
+    background:var(--ink);
+    border-bottom:1px solid var(--ink-3);
+    flex-shrink:0;
+  }
+  .wordmark{
+    font-family:'Source Serif 4', serif;
+    font-style:italic;
+    font-weight:600;
+    font-size:22px;
+    color:var(--cream-text);
+    white-space:nowrap;
+  }
+  .wordmark span{ color: var(--teal-bright); font-style: normal; }
+  .title-field{ flex:1; min-width:0; }
+  .title-field input{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:1px solid transparent;
+    color:var(--cream-text);
+    font-family:'Source Serif 4', serif;
+    font-size:17px;
+    padding:4px 2px;
+    outline:none;
+  }
+  .title-field input::placeholder{ color:var(--muted-dark); font-style:italic; }
+  .title-field input:focus{ border-bottom:1px solid var(--teal-bright); }
+  .meta-date{ font-size:13px; color:var(--muted); white-space:nowrap; }
+
+  /* ---------- Main layout ---------- */
+  .main{ flex:1; display:flex; min-height:0; }
+
+  /* ---------- Transcript / document pane ---------- */
+  .doc-pane{
+    flex:1 1 68%;
+    background:var(--paper);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+  .tabs{
+    display:flex; gap:4px; padding:14px 28px 0 28px;
+    border-bottom:1px solid var(--paper-line);
+    background:var(--paper-2); flex-shrink:0;
+  }
+  .tab-btn{
+    background:none; border:none; font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px; font-weight:500; color:var(--muted-dark);
+    padding:10px 6px 12px 6px; margin-right:22px; cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .tab-btn.active{ color:var(--ink); border-bottom:2px solid var(--teal); }
+  .tab-btn:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+
+  .doc-body{ flex:1; overflow-y:auto; padding:8px 28px 40px 28px; }
+  .doc-body::-webkit-scrollbar{ width:10px; }
+  .doc-body::-webkit-scrollbar-thumb{ background:var(--paper-line); border-radius:6px; }
+
+  .empty-state{
+    max-width:420px; margin:64px auto 0 auto; text-align:center;
+    color:var(--muted-dark); font-family:'Source Serif 4', serif;
+    font-style:italic; font-size:16px; line-height:1.6;
+  }
+
+  .line{ display:flex; gap:16px; padding:12px 0; border-bottom:1px solid var(--paper-line); }
+  .line .ts{
+    flex:0 0 52px; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    color:var(--muted-dark); padding-top:3px; font-variant-numeric: tabular-nums;
+  }
+  .line .txt{ flex:1; font-family:'Source Serif 4', serif; font-size:16.5px; line-height:1.6; }
+  .line .txt .ghost{ color:#8A8370; font-style:italic; }
+
+  /* Notulen document view */
+  .notulen-doc{ max-width:640px; }
+  .notulen-doc h3{
+    font-family:'Source Serif 4', serif; font-size:15px; font-weight:600;
+    color:var(--teal-deep); margin:30px 0 8px 0;
+    border-bottom:1px solid var(--paper-line); padding-bottom:6px;
+  }
+  .notulen-doc h3:first-child{ margin-top:6px; }
+  .notulen-doc p{ font-family:'Source Serif 4', serif; font-size:16px; line-height:1.65; margin:0 0 6px 0; }
+  .notulen-doc ul{ margin:0; padding-left:20px; }
+  .notulen-doc li{ font-family:'Source Serif 4', serif; font-size:16px; line-height:1.6; margin-bottom:6px; }
+  .action-table{ width:100%; border-collapse:collapse; margin-top:4px; }
+  .action-table th{
+    text-align:left; font-size:11px; font-weight:600; color:var(--muted-dark);
+    padding:6px 10px 6px 0; border-bottom:1px solid var(--paper-line);
+  }
+  .action-table td{
+    font-family:'Source Serif 4', serif; font-size:15px;
+    padding:8px 10px 8px 0; border-bottom:1px solid var(--paper-line); vertical-align:top;
+  }
+  .notulen-empty{ color:var(--muted-dark); font-style:italic; }
+  .notulen-actions{ display:flex; gap:10px; margin-top:32px; }
+
+  /* ---------- Control rail ---------- */
+  .rail{
+    flex:0 0 320px; background:var(--ink-2); border-left:1px solid var(--ink-3);
+    padding:26px 24px 24px 24px; display:flex; flex-direction:column; overflow-y:auto;
+  }
+  .status-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--muted-dark); flex-shrink:0; }
+  .dot.live{ background:var(--record-bright); animation:pulse 1.6s ease-in-out infinite; }
+  .dot.holding{ background:var(--amber); }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(222,106,69,0.55); }
+    70%{ box-shadow:0 0 0 9px rgba(222,106,69,0); }
+    100%{ box-shadow:0 0 0 0 rgba(222,106,69,0); }
+  }
+  @media (prefers-reduced-motion: reduce){ .dot.live{ animation:none; } }
+  .status-label{ font-size:13.5px; color:var(--cream-text); font-weight:500; }
+  .timer{
+    font-family:'IBM Plex Mono', monospace; font-size:34px; letter-spacing:0.5px;
+    margin:10px 0 2px 0; color:var(--cream-text); font-variant-numeric: tabular-nums;
+  }
+  .wordcount{ font-size:12.5px; color:var(--muted); margin-bottom:22px; }
+
+  .btn-row{ display:flex; gap:10px; }
+  .record-btn{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:9px;
+    padding:15px 0; border-radius:8px; border:none; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; font-size:14.5px; font-weight:600;
+    background:var(--record); color:#fff; transition:background 0.15s ease;
+  }
+  .record-btn:hover{ background:var(--record-bright); }
+  .record-btn.is-active{ background:var(--ink-3); border:1px solid var(--record-bright); color:var(--cream-text); }
+  .record-btn.is-active:hover{ background:#343c4c; }
+  .record-btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .rec-icon{ width:11px; height:11px; border-radius:50%; background:#fff; flex-shrink:0; }
+  .record-btn.is-active .rec-icon{ border-radius:2px; background:var(--record-bright); }
+
+  .pause-btn{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:15px 0; border-radius:8px; border:1px solid #384152; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; font-size:14.5px; font-weight:600;
+    background:transparent; color:var(--cream-text); transition:border-color 0.15s ease;
+  }
+  .pause-btn:hover:not(:disabled){ border-color:var(--amber); }
+  .pause-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .pause-btn.is-paused{ border-color:var(--amber); color:var(--amber); }
+
+  .field-group{ margin-top:24px; }
+  .field-label{ font-size:12px; color:var(--muted); margin-bottom:8px; display:block; }
+  select{
+    width:100%; background:var(--ink-3); color:var(--cream-text);
+    border:1px solid #384152; border-radius:6px; padding:9px 10px;
+    font-family:'IBM Plex Sans', sans-serif; font-size:13.5px;
+  }
+  select:disabled{ opacity:0.5; }
+
+  .divider{ height:1px; background:var(--ink-3); margin:24px 0; }
+
+  .btn{
+    width:100%; padding:12px 0; border-radius:8px; border:1px solid #384152;
+    background:transparent; color:var(--cream-text);
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:500;
+    cursor:pointer; margin-bottom:10px; transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn:hover:not(:disabled){ border-color:var(--teal-bright); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-primary{ background:var(--teal); border-color:var(--teal); }
+  .btn-primary:hover:not(:disabled){ background:var(--teal-bright); border-color:var(--teal-bright); }
+  .btn:focus-visible, .record-btn:focus-visible, .pause-btn:focus-visible, select:focus-visible, input:focus-visible{
+    outline:2px solid var(--teal-bright); outline-offset:2px;
+  }
+
+  .hint{ font-size:12px; color:var(--muted-dark); line-height:1.5; margin-top:4px; }
+  .banner{
+    background:var(--danger-bg); border:1px solid #5A3A30; color:#F0C9B8;
+    font-size:12.5px; line-height:1.55; padding:12px 14px; border-radius:8px; margin-bottom:20px;
+  }
+
+  @media (max-width: 860px){
+    .main{ flex-direction:column; }
+    .rail{ flex:none; border-left:none; border-top:1px solid var(--ink-3); order:-1; }
+    .doc-pane{ flex:1; }
+    .topbar{ padding:12px 16px; gap:14px; }
+    .doc-body{ padding:6px 16px 30px 16px; }
+    .tabs{ padding:12px 16px 0 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="wordmark">notu<span>la</span></div>
+    <div class="title-field">
+      <input id="meetingTitle" type="text" placeholder="Judul rapat (mis. Rapat Koordinasi Mingguan)" maxlength="120">
+    </div>
+    <div class="meta-date" id="metaDate"></div>
+  </div>
+
+  <div class="main">
+
+    <div class="doc-pane">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="transkrip" id="tabTranskripBtn">Transkrip</button>
+        <button class="tab-btn" data-tab="notulen" id="tabNotulenBtn">Notulen</button>
+      </div>
+      <div class="doc-body" id="tabTranskrip">
+        <div class="empty-state" id="emptyState">Tekan "Mulai Merekam" di panel kanan untuk mulai mencatat pembicaraan rapat secara langsung. Transkrip akan dikelompokkan otomatis per potongan waktu, bukan per kata.</div>
+        <div id="transcriptLines"></div>
+      </div>
+      <div class="doc-body" id="tabNotulen" style="display:none;">
+        <div id="notulenContent">
+          <p class="notulen-empty" style="font-family:'Source Serif 4', serif; font-size:16px;">Notulen akan muncul di sini setelah rapat selesai direkam. Tekan "Buat Notulen AI" di panel kanan.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rail">
+
+      <div id="supportBanner" class="banner" style="display:none;"></div>
+
+      <div class="status-row">
+        <div class="dot" id="statusDot"></div>
+        <div class="status-label" id="statusLabel">Siap merekam</div>
+      </div>
+      <div class="timer" id="timer">00:00</div>
+      <div class="wordcount" id="wordcount">0 kata tercatat</div>
+
+      <div class="btn-row">
+        <button class="record-btn" id="recordBtn">
+          <span class="rec-icon"></span>
+          <span id="recordBtnLabel">Mulai</span>
+        </button>
+        <button class="pause-btn" id="pauseBtn" disabled>
+          <span id="pauseBtnLabel">Jeda</span>
+        </button>
+      </div>
+      <div class="hint">Gunakan Chrome atau Edge di desktop/Android untuk hasil terbaik. Jeda dulu sebelum mengganti bahasa pembicaraan di tengah rapat.</div>
+
+      <div class="field-group">
+        <label class="field-label" for="langSelect">Bahasa pembicaraan aktif</label>
+        <select id="langSelect">
+          <option value="id-ID" selected>Bahasa Indonesia</option>
+          <option value="en-US">English</option>
+        </select>
+        <div class="hint">Mesin pengenal suara hanya aktif satu bahasa per sesi dan belum menyediakan Bahasa Sunda secara resmi — ucapan Sunda akan dibaca dengan model Bahasa Indonesia sehingga bisa kurang tepat untuk kosakata khasnya. Untuk segmen berbahasa Inggris yang panjang: tekan Jeda, ganti pilihan di sini, lalu Lanjutkan.</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn" id="downloadTxtBtn" disabled>Unduh Transkrip (.txt)</button>
+
+      <div class="field-group" style="margin-top:0;">
+        <label class="field-label" for="aiProviderSelect">Model AI untuk notulen</label>
+        <select id="aiProviderSelect">
+          <option value="anthropic" selected>Claude (Anthropic)</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="openai">ChatGPT (OpenAI)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="summarizeBtn" disabled style="margin-top:10px;">Buat Notulen AI</button>
+      <div class="hint" id="summarizeHint"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- Konfigurasi pengelompokan paragraf ----------
+  const SILENCE_GAP_SEC = 6;      // jeda hening lebih dari ini -> paragraf baru
+  const MAX_PARA_DURATION_SEC = 75; // ~1-1.5 menit -> paragraf baru meski tidak hening
+  const GROWTH_MERGE_WINDOW_SEC = 2.5; // jendela deteksi hasil "final" yang tumpang tindih/tumbuh
+
+  // ---------- State ----------
+  let recognition = null;
+  let state = 'idle'; // idle | recording | paused | stopped
+  let startTime = null;
+  let elapsedBeforePause = 0;
+  let timerInterval = null;
+  let paragraphs = []; // {startSec, lastSec, text}
+  let lastCommitted = null; // {text, sec, paraIndex, prefixLen}
+  let ghostEl = null;
+
+  const el = {
+    metaDate: document.getElementById('metaDate'),
+    meetingTitle: document.getElementById('meetingTitle'),
+    recordBtn: document.getElementById('recordBtn'),
+    recordBtnLabel: document.getElementById('recordBtnLabel'),
+    pauseBtn: document.getElementById('pauseBtn'),
+    pauseBtnLabel: document.getElementById('pauseBtnLabel'),
+    statusDot: document.getElementById('statusDot'),
+    statusLabel: document.getElementById('statusLabel'),
+    timer: document.getElementById('timer'),
+    wordcount: document.getElementById('wordcount'),
+    langSelect: document.getElementById('langSelect'),
+    aiProviderSelect: document.getElementById('aiProviderSelect'),
+    transcriptLines: document.getElementById('transcriptLines'),
+    emptyState: document.getElementById('emptyState'),
+    downloadTxtBtn: document.getElementById('downloadTxtBtn'),
+    summarizeBtn: document.getElementById('summarizeBtn'),
+    summarizeHint: document.getElementById('summarizeHint'),
+    supportBanner: document.getElementById('supportBanner'),
+    tabTranskripBtn: document.getElementById('tabTranskripBtn'),
+    tabNotulenBtn: document.getElementById('tabNotulenBtn'),
+    tabTranskrip: document.getElementById('tabTranskrip'),
+    tabNotulen: document.getElementById('tabNotulen'),
+    notulenContent: document.getElementById('notulenContent'),
+  };
+
+  el.metaDate.textContent = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+
+  // ---------- Tabs ----------
+  function showTab(name){
+    const isT = name === 'transkrip';
+    el.tabTranskripBtn.classList.toggle('active', isT);
+    el.tabNotulenBtn.classList.toggle('active', !isT);
+    el.tabTranskrip.style.display = isT ? 'block' : 'none';
+    el.tabNotulen.style.display = isT ? 'none' : 'block';
+  }
+  el.tabTranskripBtn.addEventListener('click', () => showTab('transkrip'));
+  el.tabNotulenBtn.addEventListener('click', () => showTab('notulen'));
+
+  // ---------- Dukungan pengenalan suara ----------
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognitionAPI){
+    el.supportBanner.style.display = 'block';
+    el.supportBanner.textContent = 'Browser ini tidak mendukung pengenalan suara langsung. Buka aplikasi ini di Google Chrome atau Microsoft Edge untuk menggunakan fitur perekaman.';
+    el.recordBtn.disabled = true;
+  }
+
+  function formatTime(totalSeconds){
+    const h = Math.floor(totalSeconds/3600);
+    const m = Math.floor((totalSeconds%3600)/60);
+    const s = Math.floor(totalSeconds%60);
+    const pad = n => String(n).padStart(2,'0');
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  }
+
+  function getElapsedSec(){
+    return elapsedBeforePause + (startTime ? (Date.now()-startTime)/1000 : 0);
+  }
+
+  function updateTimer(){ el.timer.textContent = formatTime(getElapsedSec()); }
+
+  function updateWordcount(){
+    const words = paragraphs.reduce((acc,p) => acc + p.text.trim().split(/\s+/).filter(Boolean).length, 0);
+    el.wordcount.textContent = `${words} kata tercatat`;
+  }
+
+  // ---------- Render transkrip dari data paragraf ----------
+  function renderParagraphs(){
+    el.transcriptLines.innerHTML = '';
+    if(paragraphs.length === 0){
+      el.emptyState.style.display = 'block';
+    } else {
+      el.emptyState.style.display = 'none';
+      paragraphs.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'line';
+        const tsDiv = document.createElement('div');
+        tsDiv.className = 'ts';
+        tsDiv.textContent = formatTime(p.startSec);
+        const txtDiv = document.createElement('div');
+        txtDiv.className = 'txt';
+        txtDiv.textContent = p.text;
+        row.appendChild(tsDiv);
+        row.appendChild(txtDiv);
+        el.transcriptLines.appendChild(row);
+      });
+    }
+    el.tabTranskrip.scrollTop = el.tabTranskrip.scrollHeight;
+    updateWordcount();
+  }
+
+  function setGhost(text){
+    if(!text){ clearGhost(); return; }
+    if(!ghostEl){
+      const row = document.createElement('div');
+      row.className = 'line';
+      row.innerHTML = `<div class="ts">…</div><div class="txt"><span class="ghost"></span></div>`;
+      el.transcriptLines.appendChild(row);
+      ghostEl = row.querySelector('.ghost');
+    }
+    ghostEl.textContent = text;
+    el.tabTranskrip.scrollTop = el.tabTranskrip.scrollHeight;
+  }
+  function clearGhost(){
+    if(ghostEl){ ghostEl.closest('.line').remove(); ghostEl = null; }
+  }
+
+  // ---------- Inti perbaikan: gabungkan hasil "final" yang tumbuh/duplikat, kelompokkan per paragraf ----------
+  function commitUtterance(rawText){
+    const text = rawText.trim();
+    if(!text) return;
+    const nowSec = getElapsedSec();
+
+    const isGrowth = lastCommitted &&
+      (nowSec - lastCommitted.sec < GROWTH_MERGE_WINDOW_SEC) &&
+      (text.toLowerCase().startsWith(lastCommitted.text.toLowerCase()) ||
+       lastCommitted.text.toLowerCase().startsWith(text.toLowerCase()));
+
+    let paraIndex, prefixLen;
+    if(isGrowth){
+      paraIndex = lastCommitted.paraIndex;
+      prefixLen = lastCommitted.prefixLen;
+    } else {
+      const last = paragraphs[paragraphs.length - 1];
+      const needNew = !last ||
+        (nowSec - last.lastSec > SILENCE_GAP_SEC) ||
+        (nowSec - last.startSec > MAX_PARA_DURATION_SEC);
+      if(needNew){
+        paragraphs.push({ startSec: nowSec, lastSec: nowSec, text: '' });
+      }
+      paraIndex = paragraphs.length - 1;
+      prefixLen = paragraphs[paraIndex].text.length;
+    }
+
+    const para = paragraphs[paraIndex];
+    para.text = para.text.slice(0, prefixLen) + (prefixLen > 0 ? ' ' : '') + text;
+    para.lastSec = nowSec;
+    lastCommitted = { text, sec: nowSec, paraIndex, prefixLen };
+
+    clearGhost();
+    renderParagraphs();
+  }
+
+  function forceNewParagraphBoundary(){
+    // dipanggil saat jeda/lanjut: paksa paragraf baru berikutnya, bukan menyambung yang lama
+    lastCommitted = null;
+    if(paragraphs.length){
+      paragraphs[paragraphs.length - 1].lastSec = -Infinity;
+    }
+  }
+
+  function buildRecognition(){
+    const r = new SpeechRecognitionAPI();
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = el.langSelect.value;
+
+    r.onresult = (event) => {
+      let interimText = '';
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const res = event.results[i];
+        if(res.isFinal){
+          commitUtterance(res[0].transcript);
+        } else {
+          interimText += res[0].transcript;
+        }
+      }
+      setGhost(interimText.trim());
+    };
+
+    r.onerror = (event) => {
+      if(event.error === 'not-allowed' || event.error === 'service-not-allowed'){
+        el.supportBanner.style.display = 'block';
+        el.supportBanner.textContent = 'Izin mikrofon ditolak. Aktifkan izin mikrofon untuk situs ini di pengaturan browser, lalu tekan "Mulai" kembali.';
+        forceStopUI();
+      } else if(event.error === 'network'){
+        el.supportBanner.style.display = 'block';
+        el.supportBanner.textContent = 'Koneksi terputus saat mengenali suara. Periksa koneksi internet Anda.';
+      }
+      // 'no-speech' dan sejenisnya dibiarkan, akan ditangani onend (auto-restart)
+    };
+
+    r.onend = () => {
+      clearGhost();
+      if(state === 'recording'){
+        try{ r.start(); } catch(e){ /* abaikan kegagalan restart yang terlalu cepat */ }
+      }
+    };
+
+    return r;
+  }
+
+  function setStatus(dotClass, label){
+    el.statusDot.className = 'dot' + (dotClass ? (' ' + dotClass) : '');
+    el.statusLabel.textContent = label;
+  }
+
+  function startRecording(){
+    if(!SpeechRecognitionAPI) return;
+    state = 'recording';
+    startTime = Date.now();
+    recognition = buildRecognition();
+    try{ recognition.start(); }
+    catch(e){ state = 'idle'; return; }
+
+    el.langSelect.disabled = true;
+    el.recordBtn.classList.add('is-active');
+    el.recordBtnLabel.textContent = 'Berhenti';
+    el.pauseBtn.disabled = false;
+    el.pauseBtn.classList.remove('is-paused');
+    el.pauseBtnLabel.textContent = 'Jeda';
+    setStatus('live', 'Merekam…');
+    el.downloadTxtBtn.disabled = true;
+    el.summarizeBtn.disabled = true;
+    timerInterval = setInterval(updateTimer, 500);
+  }
+
+  function pauseRecording(){
+    if(state !== 'recording') return;
+    state = 'paused';
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+    clearGhost();
+    elapsedBeforePause = getElapsedSec();
+    startTime = null;
+    clearInterval(timerInterval);
+    updateTimer();
+    forceNewParagraphBoundary();
+    el.langSelect.disabled = false;
+    el.pauseBtn.classList.add('is-paused');
+    el.pauseBtnLabel.textContent = 'Lanjutkan';
+    setStatus('holding', 'Dijeda');
+  }
+
+  function resumeRecording(){
+    if(state !== 'paused') return;
+    state = 'recording';
+    startTime = Date.now();
+    recognition = buildRecognition();
+    try{ recognition.start(); } catch(e){}
+    el.langSelect.disabled = true;
+    el.pauseBtn.classList.remove('is-paused');
+    el.pauseBtnLabel.textContent = 'Jeda';
+    setStatus('live', 'Merekam…');
+    timerInterval = setInterval(updateTimer, 500);
+  }
+
+  function stopRecording(){
+    const wasActive = state === 'recording' || state === 'paused';
+    if(state === 'recording' && recognition){ try{ recognition.stop(); }catch(e){} }
+    clearGhost();
+    if(startTime){ elapsedBeforePause = getElapsedSec(); startTime = null; }
+    clearInterval(timerInterval);
+    updateTimer();
+    state = 'stopped';
+
+    el.langSelect.disabled = false;
+    el.recordBtn.classList.remove('is-active');
+    el.recordBtnLabel.textContent = 'Mulai';
+    el.pauseBtn.disabled = true;
+    el.pauseBtn.classList.remove('is-paused');
+    el.pauseBtnLabel.textContent = 'Jeda';
+    setStatus(null, paragraphs.length ? 'Rekaman selesai' : 'Siap merekam');
+    el.downloadTxtBtn.disabled = paragraphs.length === 0;
+    el.summarizeBtn.disabled = paragraphs.length === 0;
+    if(!wasActive){ /* tombol ditekan saat idle, tidak ada apa-apa untuk dihentikan */ }
+  }
+
+  function forceStopUI(){
+    state = 'idle';
+    if(startTime){ elapsedBeforePause = getElapsedSec(); startTime = null; }
+    clearInterval(timerInterval);
+    el.recordBtn.classList.remove('is-active');
+    el.recordBtnLabel.textContent = 'Mulai';
+    el.pauseBtn.disabled = true;
+    setStatus(null, 'Siap merekam');
+  }
+
+  el.recordBtn.addEventListener('click', () => {
+    if(state === 'idle' || state === 'stopped'){ startRecording(); }
+    else { stopRecording(); }
+  });
+  el.pauseBtn.addEventListener('click', () => {
+    if(state === 'recording'){ pauseRecording(); }
+    else if(state === 'paused'){ resumeRecording(); }
+  });
+
+  // ---------- Unduh transkrip .txt ----------
+  el.downloadTxtBtn.addEventListener('click', () => {
+    const title = el.meetingTitle.value.trim() || 'Rapat Tanpa Judul';
+    const dateStr = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+    let content = `NOTULENSI RAPAT\nJudul: ${title}\nTanggal: ${dateStr}\nDurasi: ${formatTime(getElapsedSec())}\n\n--- TRANSKRIP ---\n\n`;
+    paragraphs.forEach(p => { content += `[${formatTime(p.startSec)}] ${p.text}\n\n`; });
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]+/gi,'_')}_transkrip.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // ---------- Notulen AI ----------
+  function renderNotulen(data){
+    const wrap = document.createElement('div');
+    wrap.className = 'notulen-doc';
+
+    const h1 = document.createElement('h3'); h1.textContent = 'Ringkasan';
+    const p1 = document.createElement('p'); p1.textContent = data.ringkasan || '—';
+    wrap.appendChild(h1); wrap.appendChild(p1);
+
+    const h2 = document.createElement('h3'); h2.textContent = 'Poin Penting';
+    wrap.appendChild(h2);
+    if(data.poin_penting && data.poin_penting.length){
+      const ul = document.createElement('ul');
+      data.poin_penting.forEach(pt => { const li = document.createElement('li'); li.textContent = pt; ul.appendChild(li); });
+      wrap.appendChild(ul);
+    } else {
+      const p = document.createElement('p'); p.className='notulen-empty'; p.textContent='Tidak ada poin khusus yang tercatat.'; wrap.appendChild(p);
+    }
+
+    const h3 = document.createElement('h3'); h3.textContent = 'Keputusan';
+    wrap.appendChild(h3);
+    if(data.keputusan && data.keputusan.length){
+      const ul = document.createElement('ul');
+      data.keputusan.forEach(pt => { const li = document.createElement('li'); li.textContent = pt; ul.appendChild(li); });
+      wrap.appendChild(ul);
+    } else {
+      const p = document.createElement('p'); p.className='notulen-empty'; p.textContent='Tidak ada keputusan eksplisit yang tercatat.'; wrap.appendChild(p);
+    }
+
+    const h4 = document.createElement('h3'); h4.textContent = 'Tindak Lanjut';
+    wrap.appendChild(h4);
+    if(data.tindak_lanjut && data.tindak_lanjut.length){
+      const table = document.createElement('table');
+      table.className = 'action-table';
+      table.innerHTML = '<tr><th>Tugas</th><th>Penanggung Jawab</th><th>Tenggat</th></tr>';
+      data.tindak_lanjut.forEach(item => {
+        const tr = document.createElement('tr');
+        const c1 = document.createElement('td'); c1.textContent = item.tugas || '—';
+        const c2 = document.createElement('td'); c2.textContent = item.penanggung_jawab || '—';
+        const c3 = document.createElement('td'); c3.textContent = item.tenggat || '—';
+        tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3);
+        table.appendChild(tr);
+      });
+      wrap.appendChild(table);
+    } else {
+      const p = document.createElement('p'); p.className='notulen-empty'; p.textContent='Tidak ada tindak lanjut yang tercatat.'; wrap.appendChild(p);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'notulen-actions';
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'btn';
+    dlBtn.style.width = 'auto';
+    dlBtn.style.padding = '10px 18px';
+    dlBtn.textContent = 'Unduh Notulen (.txt)';
+    dlBtn.addEventListener('click', () => downloadNotulen(data));
+    actions.appendChild(dlBtn);
+    wrap.appendChild(actions);
+
+    el.notulenContent.innerHTML = '';
+    el.notulenContent.appendChild(wrap);
+  }
+
+  function downloadNotulen(data){
+    const title = el.meetingTitle.value.trim() || 'Rapat Tanpa Judul';
+    const dateStr = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+    let content = `NOTULEN RAPAT\nJudul: ${title}\nTanggal: ${dateStr}\n\n`;
+    content += `RINGKASAN\n${data.ringkasan || '-'}\n\n`;
+    content += `POIN PENTING\n`;
+    (data.poin_penting||[]).forEach(p => content += `- ${p}\n`);
+    content += `\nKEPUTUSAN\n`;
+    (data.keputusan||[]).forEach(p => content += `- ${p}\n`);
+    content += `\nTINDAK LANJUT\n`;
+    (data.tindak_lanjut||[]).forEach(t => content += `- ${t.tugas || '-'} | PIC: ${t.penanggung_jawab || '-'} | Tenggat: ${t.tenggat || '-'}\n`);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]+/gi,'_')}_notulen.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  el.summarizeBtn.addEventListener('click', async () => {
+    const fullText = paragraphs.map(p => p.text).join(' ');
+    const wordCount = fullText.trim().split(/\s+/).filter(Boolean).length;
+    if(wordCount < 15){
+      el.summarizeHint.textContent = 'Transkrip terlalu singkat untuk dirangkum secara bermakna.';
+      return;
+    }
+    el.summarizeBtn.disabled = true;
+    el.summarizeBtn.textContent = 'Menyusun notulen…';
+    el.summarizeHint.textContent = '';
+    showTab('notulen');
+
+    const title = el.meetingTitle.value.trim() || 'Rapat Tanpa Judul';
+
+    try{
+      // Memanggil Cloudflare Pages Function (lihat functions/api/summarize.js) —
+      // API key Anthropic disimpan aman di server, tidak pernah ada di kode ini.
+      const provider = el.aiProviderSelect.value;
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, transcript: fullText, provider })
+      });
+      const data = await response.json();
+      if(!response.ok){
+        throw new Error(data.error || 'Gagal menyusun notulen.');
+      }
+      renderNotulen(data);
+    }catch(err){
+      const providerKeyName = { anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY' }[el.aiProviderSelect.value] || 'API key';
+      el.notulenContent.innerHTML = `<p class="notulen-empty" style="font-family:'Source Serif 4', serif; font-size:16px;">Gagal menyusun notulen otomatis: ${(err && err.message) ? err.message : 'terjadi kesalahan.'} Pastikan ${providerKeyName} sudah diatur di environment variables Cloudflare Pages.</p>`;
+    }finally{
+      el.summarizeBtn.disabled = false;
+      el.summarizeBtn.textContent = 'Buat Notulen AI';
+    }
+  });
+
+  updateTimer();
+  updateWordcount();
+})();
+</script>
+</body>
+</html>
