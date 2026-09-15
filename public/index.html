@@ -347,6 +347,8 @@
   let paragraphs = []; // {startSec, lastSec, text}
   let lastCommitted = null; // {text, sec, paraIndex, prefixLen}
   let ghostEl = null;
+  let keepaliveInterval = null;
+  let restartAttempts = 0;
 
   const el = {
     metaDate: document.getElementById('metaDate'),
@@ -532,11 +534,44 @@
     r.onend = () => {
       clearGhost();
       if(state === 'recording'){
-        try{ r.start(); } catch(e){ /* abaikan kegagalan restart yang terlalu cepat */ }
+        restartRecognition();
       }
     };
 
     return r;
+  }
+
+  // Memaksa restart terjadwal tiap 45 detik, tidak menunggu browser
+  // memutus sendiri — jaga-jaga kalau servis macet diam tanpa memicu
+  // onend/onerror sama sekali (bug yang cukup umum di Chrome).
+  function armKeepalive(){
+    clearInterval(keepaliveInterval);
+    keepaliveInterval = setInterval(() => {
+      if(state === 'recording' && recognition){
+        try{ recognition.stop(); } catch(e){}
+      }
+    }, 45000);
+  }
+
+  // Selalu bikin instance baru (bukan pakai instance lama yang sudah
+  // "habis"), dan dicoba ulang dengan jeda kalau start() gagal — alih-alih
+  // diam saja seperti sebelumnya.
+  function restartRecognition(){
+    if(state !== 'recording') return;
+    try{
+      recognition = buildRecognition();
+      recognition.start();
+      restartAttempts = 0;
+    } catch(e){
+      restartAttempts++;
+      if(restartAttempts <= 10){
+        setTimeout(restartRecognition, 200);
+      } else {
+        el.supportBanner.classList.remove('is-hidden');
+        el.supportBanner.textContent = 'Pengenalan suara berhenti merespons dan gagal dilanjutkan otomatis. Tekan "Berhenti", lalu "Mulai" kembali (transkrip sebelumnya tidak hilang).';
+        forceStopUI();
+      }
+    }
   }
 
   function setStatus(dotClass, label){
@@ -562,6 +597,7 @@
     el.downloadTxtBtn.disabled = true;
     el.summarizeBtn.disabled = true;
     timerInterval = setInterval(updateTimer, 500);
+    armKeepalive();
   }
 
   function pauseRecording(){
@@ -572,6 +608,7 @@
     elapsedBeforePause = getElapsedSec();
     startTime = null;
     clearInterval(timerInterval);
+    clearInterval(keepaliveInterval);
     updateTimer();
     forceNewParagraphBoundary();
     el.langSelect.disabled = false;
@@ -591,6 +628,7 @@
     el.pauseBtnLabel.textContent = 'Jeda';
     setStatus('live', 'Merekam…');
     timerInterval = setInterval(updateTimer, 500);
+    armKeepalive();
   }
 
   function stopRecording(){
@@ -599,6 +637,7 @@
     clearGhost();
     if(startTime){ elapsedBeforePause = getElapsedSec(); startTime = null; }
     clearInterval(timerInterval);
+    clearInterval(keepaliveInterval);
     updateTimer();
     state = 'stopped';
 
@@ -618,6 +657,7 @@
     state = 'idle';
     if(startTime){ elapsedBeforePause = getElapsedSec(); startTime = null; }
     clearInterval(timerInterval);
+    clearInterval(keepaliveInterval);
     el.recordBtn.classList.remove('is-active');
     el.recordBtnLabel.textContent = 'Mulai';
     el.pauseBtn.disabled = true;
