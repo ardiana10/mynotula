@@ -144,6 +144,34 @@
   .notulen-empty{ color:var(--muted-dark); font-style:italic; }
   .notulen-actions{ display:flex; gap:10px; margin-top:32px; }
 
+    /* ---------- Utility styles ---------- */
+  .is-hidden{
+    display:none;
+  }
+
+  .notulen-message{
+    font-family:'Source Serif 4', serif;
+    font-size:16px;
+  }
+
+  .field-group.no-top-margin{
+    margin-top:0;
+  }
+
+  .summarize-btn{
+    margin-top:10px;
+  }
+
+  .notulen-error{
+    font-family:'Source Serif 4', serif;
+    font-size:16px;
+  }
+
+  .notulen-download-btn{
+    width:auto;
+    padding:10px 18px;
+  }
+
   /* ---------- Control rail ---------- */
   .rail{
     flex:0 0 320px; background:var(--ink-2); border-left:1px solid var(--ink-3);
@@ -253,16 +281,16 @@
         <div class="empty-state" id="emptyState">Tekan "Mulai Merekam" di panel kanan untuk mulai mencatat pembicaraan rapat secara langsung. Transkrip akan dikelompokkan otomatis per potongan waktu, bukan per kata.</div>
         <div id="transcriptLines"></div>
       </div>
-      <div class="doc-body" id="tabNotulen" style="display:none;">
+      <div class="doc-body is-hidden" id="tabNotulen">
         <div id="notulenContent">
-          <p class="notulen-empty" style="font-family:'Source Serif 4', serif; font-size:16px;">Notulen akan muncul di sini setelah rapat selesai direkam. Tekan "Buat Notulen AI" di panel kanan.</p>
+          <p class="notulen-empty notulen-message">Notulen akan muncul di sini setelah rapat selesai direkam. Tekan "Buat Notulen AI" di panel kanan.</p>
         </div>
       </div>
     </div>
 
     <div class="rail">
 
-      <div id="supportBanner" class="banner" style="display:none;"></div>
+      <div id="supportBanner" class="banner is-hidden"></div>
 
       <div class="status-row">
         <div class="dot" id="statusDot"></div>
@@ -295,7 +323,7 @@
 
       <button class="btn" id="downloadTxtBtn" disabled>Unduh Transkrip (.txt)</button>
 
-      <div class="field-group" style="margin-top:0;">
+      <div class="field-group no-top-margin">
         <label class="field-label" for="aiProviderSelect">Model AI untuk notulen</label>
         <select id="aiProviderSelect">
           <option value="anthropic" selected>Claude (Anthropic)</option>
@@ -303,7 +331,7 @@
           <option value="openai">ChatGPT (OpenAI)</option>
         </select>
       </div>
-      <button class="btn btn-primary" id="summarizeBtn" disabled style="margin-top:10px;">Buat Notulen AI</button>
+      <button class="btn btn-primary summarize-btn" id="summarizeBtn" disabled>Buat Notulen AI</button>
       <div class="hint" id="summarizeHint"></div>
 
     </div>
@@ -360,8 +388,8 @@
     const isT = name === 'transkrip';
     el.tabTranskripBtn.classList.toggle('active', isT);
     el.tabNotulenBtn.classList.toggle('active', !isT);
-    el.tabTranskrip.style.display = isT ? 'block' : 'none';
-    el.tabNotulen.style.display = isT ? 'none' : 'block';
+    el.tabTranskrip.classList.toggle('is-hidden', !isT);
+    el.tabNotulen.classList.toggle('is-hidden', isT);
   }
   el.tabTranskripBtn.addEventListener('click', () => showTab('transkrip'));
   el.tabNotulenBtn.addEventListener('click', () => showTab('notulen'));
@@ -369,7 +397,7 @@
   // ---------- Dukungan pengenalan suara ----------
   const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRecognitionAPI){
-    el.supportBanner.style.display = 'block';
+    el.supportBanner.classList.remove('is-hidden');
     el.supportBanner.textContent = 'Browser ini tidak mendukung pengenalan suara langsung. Buka aplikasi ini di Google Chrome atau Microsoft Edge untuk menggunakan fitur perekaman.';
     el.recordBtn.disabled = true;
   }
@@ -499,11 +527,11 @@
 
     r.onerror = (event) => {
       if(event.error === 'not-allowed' || event.error === 'service-not-allowed'){
-        el.supportBanner.style.display = 'block';
+        el.supportBanner.classList.remove('is-hidden');
         el.supportBanner.textContent = 'Izin mikrofon ditolak. Aktifkan izin mikrofon untuk situs ini di pengaturan browser, lalu tekan "Mulai" kembali.';
         forceStopUI();
       } else if(event.error === 'network'){
-        el.supportBanner.style.display = 'block';
+        el.supportBanner.classList.remove('is-hidden');
         el.supportBanner.textContent = 'Koneksi terputus saat mengenali suara. Periksa koneksi internet Anda.';
       }
       // 'no-speech' dan sejenisnya dibiarkan, akan ditangani onend (auto-restart)
@@ -681,9 +709,7 @@
     const actions = document.createElement('div');
     actions.className = 'notulen-actions';
     const dlBtn = document.createElement('button');
-    dlBtn.className = 'btn';
-    dlBtn.style.width = 'auto';
-    dlBtn.style.padding = '10px 18px';
+    dlBtn.className = 'btn notulen-download-btn';
     dlBtn.textContent = 'Unduh Notulen (.txt)';
     dlBtn.addEventListener('click', () => downloadNotulen(data));
     actions.appendChild(dlBtn);
@@ -745,7 +771,7 @@
       renderNotulen(data);
     }catch(err){
       const providerKeyName = { anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY' }[el.aiProviderSelect.value] || 'API key';
-      el.notulenContent.innerHTML = `<p class="notulen-empty" style="font-family:'Source Serif 4', serif; font-size:16px;">Gagal menyusun notulen otomatis: ${(err && err.message) ? err.message : 'terjadi kesalahan.'} Pastikan ${providerKeyName} sudah diatur di environment variables Cloudflare Pages.</p>`;
+      el.notulenContent.innerHTML = `<p class="notulen-empty notulen-error">Gagal menyusun notulen otomatis: ${(err && err.message) ? err.message : 'terjadi kesalahan.'} Pastikan ${providerKeyName} sudah diatur di environment variables Cloudflare Pages.</p>`;
     }finally{
       el.summarizeBtn.disabled = false;
       el.summarizeBtn.textContent = 'Buat Notulen AI';
