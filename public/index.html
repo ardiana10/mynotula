@@ -756,13 +756,14 @@
   async function downloadNotulen(data){
     const title = el.meetingTitle.value.trim() || 'Rapat Tanpa Judul';
     const dateStr = new Date().toLocaleDateString('id-ID', {
-      day:'numeric',
-      month:'long',
-      year:'numeric'
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
 
+    // Ambil library docx
     const {
-      Document,
+      Document: DocxDocument,
       Packer,
       Paragraph,
       TextRun,
@@ -775,375 +776,447 @@
       BorderStyle
     } = docx;
 
-    // ---------- Helper ----------
-    function paragraphText(text, options = {}){
-      return new Paragraph({
-        children: [
-          new TextRun({
-            text: text || '-',
-            font: 'Arial',
-            size: 22,
-            ...options
-          })
-        ],
-        spacing: {
-          after: 120
-        }
-      });
-    }
+    // Cari tombol download
+    const downloadButton = el.notulenContent.querySelector('.notulen-download-btn');
 
-    function numberedParagraph(text){
-      return new Paragraph({
-        text: text || '-',
-        numbering: {
-          reference: 'notulen-numbering',
-          level: 0
-        },
-        style: 'Normal',
-        spacing: {
-          after: 100
-        }
-      });
-    }
+    try {
+      if(downloadButton){
+        downloadButton.disabled = true;
+        downloadButton.textContent = 'Membuat DOCX…';
+      }
 
-    function sectionHeading(text){
-      return new Paragraph({
-        text,
-        heading: HeadingLevel.HEADING_1,
-        spacing: {
-          before: 280,
-          after: 140
-        }
-      });
-    }
+      // ---------- Helper ----------
+      function paragraphText(text, options = {}){
+        return new Paragraph({
+          children: [
+            new TextRun({
+              text: text || '-',
+              font: 'Arial',
+              size: 22,
+              ...options
+            })
+          ],
+          spacing: {
+            after: 120
+          }
+        });
+      }
 
-    // ---------- Metadata ----------
-    const metadata = [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Judul Rapat',
-            bold: true,
-            font: 'Arial',
-            size: 22
-          }),
-          new TextRun({
-            text: ` : ${title}`,
-            font: 'Arial',
-            size: 22
-          })
-        ],
-        spacing: { after: 80 }
-      }),
+      function numberedParagraph(text){
+        return new Paragraph({
+          text: text || '-',
+          numbering: {
+            reference: 'notulen-numbering',
+            level: 0
+          },
+          style: 'Normal',
+          spacing: {
+            after: 100
+          }
+        });
+      }
 
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Tanggal',
-            bold: true,
-            font: 'Arial',
-            size: 22
-          }),
-          new TextRun({
-            text: ` : ${dateStr}`,
-            font: 'Arial',
-            size: 22
-          })
-        ],
-        spacing: { after: 80 }
-      }),
+      function sectionHeading(text){
+        return new Paragraph({
+          text,
+          heading: HeadingLevel.HEADING_1,
+          spacing: {
+            before: 280,
+            after: 140
+          }
+        });
+      }
 
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Durasi',
-            bold: true,
-            font: 'Arial',
-            size: 22
-          }),
-          new TextRun({
-            text: ` : ${formatTime(getElapsedSec())}`,
-            font: 'Arial',
-            size: 22
-          })
-        ],
-        spacing: { after: 180 }
-      })
-    ];
+      // ---------- Isi dokumen ----------
+      const children = [];
 
-    // ---------- Ringkasan ----------
-    const children = [];
-
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'NOTULEN RAPAT',
-            bold: true,
-            font: 'Arial',
-            size: 32
-          })
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: {
-          after: 300
-        }
-      })
-    );
-
-    children.push(...metadata);
-
-    children.push(sectionHeading('Ringkasan'));
-
-    children.push(
-      paragraphText(data.ringkasan || 'Tidak ada ringkasan.')
-    );
-
-    // ---------- Poin Penting ----------
-    children.push(sectionHeading('Poin Penting'));
-
-    if(data.poin_penting && data.poin_penting.length){
-      data.poin_penting.forEach(pt => {
-        children.push(numberedParagraph(pt));
-      });
-    } else {
+      // Judul
       children.push(
-        paragraphText('Tidak ada poin khusus yang tercatat.')
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'NOTULEN RAPAT',
+              bold: true,
+              font: 'Arial',
+              size: 32
+            })
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: {
+            after: 300
+          }
+        })
       );
-    }
 
-    // ---------- Keputusan ----------
-    children.push(sectionHeading('Keputusan'));
-
-    if(data.keputusan && data.keputusan.length){
-      data.keputusan.forEach(pt => {
-        children.push(numberedParagraph(pt));
-      });
-    } else {
+      // ---------- Metadata ----------
       children.push(
-        paragraphText('Tidak ada keputusan eksplisit yang tercatat.')
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'Judul Rapat',
+              bold: true,
+              font: 'Arial',
+              size: 22
+            }),
+            new TextRun({
+              text: ` : ${title}`,
+              font: 'Arial',
+              size: 22
+            })
+          ],
+          spacing: {
+            after: 80
+          }
+        })
       );
-    }
 
-    // ---------- Tindak Lanjut ----------
-    children.push(sectionHeading('Tindak Lanjut'));
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'Tanggal',
+              bold: true,
+              font: 'Arial',
+              size: 22
+            }),
+            new TextRun({
+              text: ` : ${dateStr}`,
+              font: 'Arial',
+              size: 22
+            })
+          ],
+          spacing: {
+            after: 80
+          }
+        })
+      );
 
-    const tableRows = [];
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'Durasi',
+              bold: true,
+              font: 'Arial',
+              size: 22
+            }),
+            new TextRun({
+              text: ` : ${formatTime(getElapsedSec())}`,
+              font: 'Arial',
+              size: 22
+            })
+          ],
+          spacing: {
+            after: 180
+          }
+        })
+      );
 
-    // Header tabel
-    tableRows.push(
-      new TableRow({
-        children: [
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: 'Tugas',
-                    bold: true,
-                    font: 'Arial',
-                    size: 20
-                  })
-                ]
-              })
-            ]
-          }),
+      // ---------- Ringkasan ----------
+      children.push(sectionHeading('Ringkasan'));
 
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: 'Penanggung Jawab',
-                    bold: true,
-                    font: 'Arial',
-                    size: 20
-                  })
-                ]
-              })
-            ]
-          }),
+      children.push(
+        paragraphText(
+          data.ringkasan || 'Tidak ada ringkasan.'
+        )
+      );
 
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: 'Tenggat',
-                    bold: true,
-                    font: 'Arial',
-                    size: 20
-                  })
-                ]
-              })
-            ]
-          })
-        ]
-      })
-    );
+      // ---------- Poin Penting ----------
+      children.push(sectionHeading('Poin Penting'));
 
-    if(data.tindak_lanjut && data.tindak_lanjut.length){
-      data.tindak_lanjut.forEach(item => {
-        tableRows.push(
-          new TableRow({
-            children: [
-              new TableCell({
-                children: [
-                  paragraphText(item.tugas || '-')
-                ]
-              }),
-
-              new TableCell({
-                children: [
-                  paragraphText(item.penanggung_jawab || '-')
-                ]
-              }),
-
-              new TableCell({
-                children: [
-                  paragraphText(item.tenggat || '-')
-                ]
-              })
-            ]
-          })
+      if(Array.isArray(data.poin_penting) && data.poin_penting.length){
+        data.poin_penting.forEach(pt => {
+          children.push(numberedParagraph(pt));
+        });
+      } else {
+        children.push(
+          paragraphText('Tidak ada poin khusus yang tercatat.')
         );
-      });
-    } else {
+      }
+
+      // ---------- Keputusan ----------
+      children.push(sectionHeading('Keputusan'));
+
+      if(Array.isArray(data.keputusan) && data.keputusan.length){
+        data.keputusan.forEach(pt => {
+          children.push(numberedParagraph(pt));
+        });
+      } else {
+        children.push(
+          paragraphText('Tidak ada keputusan eksplisit yang tercatat.')
+        );
+      }
+
+      // ---------- Tindak Lanjut ----------
+      children.push(sectionHeading('Tindak Lanjut'));
+
+      const tableRows = [];
+
+      // Header tabel
       tableRows.push(
         new TableRow({
           children: [
             new TableCell({
-              columnSpan: 3,
               children: [
-                paragraphText('Tidak ada tindak lanjut yang tercatat.')
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'Tugas',
+                      bold: true,
+                      font: 'Arial',
+                      size: 20
+                    })
+                  ]
+                })
+              ]
+            }),
+
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'Penanggung Jawab',
+                      bold: true,
+                      font: 'Arial',
+                      size: 20
+                    })
+                  ]
+                })
+              ]
+            }),
+
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'Tenggat',
+                      bold: true,
+                      font: 'Arial',
+                      size: 20
+                    })
+                  ]
+                })
               ]
             })
           ]
         })
       );
-    }
 
-    children.push(
-      new Table({
-        width: {
-          size: 100,
-          type: WidthType.PERCENTAGE
-        },
-        rows: tableRows,
-        borders: {
-          top: {
-            style: BorderStyle.SINGLE,
-            size: 1
-          },
-          bottom: {
-            style: BorderStyle.SINGLE,
-            size: 1
-          },
-          left: {
-            style: BorderStyle.SINGLE,
-            size: 1
-          },
-          right: {
-            style: BorderStyle.SINGLE,
-            size: 1
-          },
-          insideHorizontal: {
-            style: BorderStyle.SINGLE,
-            size: 1
-          },
-          insideVertical: {
-            style: BorderStyle.SINGLE,
-            size: 1
-          }
-        }
-      })
-    );
+      // Isi tabel
+      if(Array.isArray(data.tindak_lanjut) && data.tindak_lanjut.length){
 
-    // ---------- Dokumen ----------
-    const document = new Document({
-      numbering: {
-        config: [
-          {
-            reference: 'notulen-numbering',
-            levels: [
-              {
-                level: 0,
-                format: 'decimal',
-                text: '%1.',
-                alignment: AlignmentType.LEFT
-              }
+        data.tindak_lanjut.forEach(item => {
+
+          tableRows.push(
+            new TableRow({
+              children: [
+
+                new TableCell({
+                  children: [
+                    paragraphText(item.tugas || '-')
+                  ]
+                }),
+
+                new TableCell({
+                  children: [
+                    paragraphText(item.penanggung_jawab || '-')
+                  ]
+                }),
+
+                new TableCell({
+                  children: [
+                    paragraphText(item.tenggat || '-')
+                  ]
+                })
+
+              ]
+            })
+          );
+
+        });
+
+      } else {
+
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({
+                columnSpan: 3,
+                children: [
+                  paragraphText(
+                    'Tidak ada tindak lanjut yang tercatat.'
+                  )
+                ]
+              })
             ]
-          }
-        ]
-      },
+          })
+        );
 
-      styles: {
-        default: {
-          document: {
-            run: {
-              font: 'Arial',
-              size: 22
+      }
+
+      children.push(
+        new Table({
+          width: {
+            size: 100,
+            type: WidthType.PERCENTAGE
+          },
+
+          rows: tableRows,
+
+          borders: {
+            top: {
+              style: BorderStyle.SINGLE,
+              size: 1
             },
-            paragraph: {
-              spacing: {
-                line: 276
-              }
+            bottom: {
+              style: BorderStyle.SINGLE,
+              size: 1
+            },
+            left: {
+              style: BorderStyle.SINGLE,
+              size: 1
+            },
+            right: {
+              style: BorderStyle.SINGLE,
+              size: 1
+            },
+            insideHorizontal: {
+              style: BorderStyle.SINGLE,
+              size: 1
+            },
+            insideVertical: {
+              style: BorderStyle.SINGLE,
+              size: 1
             }
           }
+        })
+      );
+
+      // ---------- Buat dokumen DOCX ----------
+      const doc = new DocxDocument({
+
+        numbering: {
+          config: [
+            {
+              reference: 'notulen-numbering',
+
+              levels: [
+                {
+                  level: 0,
+                  format: 'decimal',
+                  text: '%1.',
+                  alignment: AlignmentType.LEFT
+                }
+              ]
+            }
+          ]
         },
 
-        paragraphStyles: [
-          {
-            id: 'Normal',
-            name: 'Normal',
-            basedOn: 'Normal',
-            next: 'Normal',
-            run: {
-              font: 'Arial',
-              size: 22
-            },
-            paragraph: {
-              spacing: {
-                line: 276,
-                after: 120
-              }
-            }
-          }
-        ]
-      },
+        styles: {
+          default: {
+            document: {
+              run: {
+                font: 'Arial',
+                size: 22
+              },
 
-      sections: [
-        {
-          properties: {
-            page: {
-              margin: {
-                top: 1000,
-                right: 1000,
-                bottom: 1000,
-                left: 1000
+              paragraph: {
+                spacing: {
+                  line: 276
+                }
               }
             }
           },
 
-          children
-        }
-      ]
-    });
+          paragraphStyles: [
+            {
+              id: 'Normal',
+              name: 'Normal',
+              basedOn: 'Normal',
+              next: 'Normal',
 
-    // ---------- Buat file DOCX ----------
-    const blob = await Packer.toBlob(document);
+              run: {
+                font: 'Arial',
+                size: 22
+              },
 
-    const url = URL.createObjectURL(blob);
+              paragraph: {
+                spacing: {
+                  line: 276,
+                  after: 120
+                }
+              }
+            }
+          ]
+        },
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.replace(/[^a-z0-9]+/gi, '_')}_notulen.docx`;
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: {
+                  top: 1000,
+                  right: 1000,
+                  bottom: 1000,
+                  left: 1000
+                }
+              }
+            },
 
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+            children
+          }
+        ]
 
-    URL.revokeObjectURL(url);
+      });
+
+      // ---------- Konversi menjadi Blob ----------
+      const blob = await Packer.toBlob(doc);
+
+      // Pastikan blob berhasil dibuat
+      if(!blob || blob.size === 0){
+        throw new Error('File DOCX gagal dibuat.');
+      }
+
+      // ---------- Download ----------
+      const url = URL.createObjectURL(blob);
+
+      const a = window.document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${title.replace(/[^a-z0-9]+/gi, '_')}_notulen.docx`;
+
+      window.document.body.appendChild(a);
+      a.click();
+
+      // Hapus elemen setelah click
+      window.document.body.removeChild(a);
+
+      // Jangan revoke terlalu cepat
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      if(downloadButton){
+        downloadButton.disabled = false;
+        downloadButton.textContent = 'Unduh Notulen (.docx)';
+      }
+
+    } catch(error) {
+
+      console.error('Gagal membuat DOCX:', error);
+
+      if(downloadButton){
+        downloadButton.disabled = false;
+        downloadButton.textContent = 'Unduh Notulen (.docx)';
+      }
+
+      el.summarizeHint.textContent =
+        `Gagal membuat file DOCX: ${
+          error?.message || 'Kesalahan tidak diketahui.'
+        }`;
+    }
   }
 
   el.summarizeBtn.addEventListener('click', async () => {
