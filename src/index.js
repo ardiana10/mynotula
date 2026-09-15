@@ -8,10 +8,7 @@
 //
 // Nama model di bawah ini bisa berubah sewaktu-waktu mengikuti rilis terbaru
 // masing-masing penyedia; sesuaikan konstanta MODELS jika model ini sudah usang.
-const MODELS = {
-  gemini: 'gemini-3.6-flash',
-  openai: 'gpt-4o-mini',
-};
+const MODEL = 'gemini-3.5-flash-lite';
 
 const SYSTEM_PROMPT = `Kamu adalah asisten yang menyusun notulen rapat profesional dalam Bahasa Indonesia formal. Kamu menerima transkrip mentah hasil pengenalan suara sebuah rapat, yang mungkin mengandung kesalahan ejaan, kata terpotong, atau campuran Bahasa Indonesia/Sunda/Inggris akibat keterbatasan teknologi speech-to-text. Pahami maksud pembicaraan meski ada ketidaksempurnaan tersebut. Balas HANYA dengan objek JSON murni, tanpa teks pembuka, tanpa penjelasan, tanpa markdown, tanpa tanda backtick, persis dengan struktur berikut:
 {"ringkasan": "satu atau dua paragraf ringkasan jalannya rapat", "poin_penting": ["poin 1", "poin 2"], "keputusan": ["keputusan 1"], "tindak_lanjut": [{"tugas": "deskripsi tugas", "penanggung_jawab": "nama jika disebut atau -", "tenggat": "tenggat jika disebut atau -"}]}
@@ -35,7 +32,7 @@ async function callGemini(env, title, transcript) {
     return { error: 'GEMINI_API_KEY belum diatur di Settings > Variables and secrets.', status: 500 };
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.gemini}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +46,10 @@ async function callGemini(env, title, transcript) {
   if (!resp.ok) {
     return { error: (data && data.error && data.error.message) || 'Gagal menghubungi Google Gemini.', status: resp.status };
   }
-  const textOut = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('\n') || '';
+  const textOut = (data?.candidates?.[0]?.content?.parts || [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text || '')
+    .join('\n');
   if (!textOut) {
     return { error: 'Gemini tidak mengembalikan hasil (kemungkinan diblokir filter keamanan).', status: 502 };
   }
@@ -95,7 +95,6 @@ async function handleSummarize(request, env) {
 
   const title = (payload.title || 'Rapat Tanpa Judul').toString().slice(0, 200);
   const transcript = (payload.transcript || '').toString();
-  const provider = (payload.provider || 'gemini').toString();
 
   if (transcript.trim().length < 10) {
     return json({ error: 'Transkrip terlalu pendek untuk dirangkum.' }, 400);
@@ -103,11 +102,7 @@ async function handleSummarize(request, env) {
 
   let result;
   try {
-    if (provider === 'openai') {
-      result = await callOpenAI(env, title, transcript);
-    } else {
-      result = await callGemini(env, title, transcript);
-    }
+    result = await callGemini(env, title, transcript);
   } catch (err) {
     return json({ error: 'Respons AI tidak dalam format JSON yang diharapkan, atau layanan sedang bermasalah.' }, 502);
   }

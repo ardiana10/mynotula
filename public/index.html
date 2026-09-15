@@ -323,13 +323,8 @@
 
       <button class="btn" id="downloadTxtBtn" disabled>Unduh Transkrip (.txt)</button>
 
-      <div class="field-group no-top-margin">
-        <label class="field-label" for="aiProviderSelect">Model AI untuk notulen</label>
-        <select id="aiProviderSelect">
-          <option value="gemini">Google Gemini</option>
-        </select>
-      </div>
       <button class="btn btn-primary summarize-btn" id="summarizeBtn" disabled>Buat Notulen Rapat</button>
+      <div class="hint">Notulen disusun oleh Google Gemini 3.5 Flash-Lite.</div>
       <div class="hint" id="summarizeHint"></div>
 
     </div>
@@ -365,7 +360,6 @@
     timer: document.getElementById('timer'),
     wordcount: document.getElementById('wordcount'),
     langSelect: document.getElementById('langSelect'),
-    aiProviderSelect: document.getElementById('aiProviderSelect'),
     transcriptLines: document.getElementById('transcriptLines'),
     emptyState: document.getElementById('emptyState'),
     downloadTxtBtn: document.getElementById('downloadTxtBtn'),
@@ -754,13 +748,12 @@
     const title = el.meetingTitle.value.trim() || 'Rapat Tanpa Judul';
 
     try{
-      // Memanggil Cloudflare Pages Function (lihat functions/api/summarize.js) —
-      // API key Anthropic disimpan aman di server, tidak pernah ada di kode ini.
-      const provider = el.aiProviderSelect.value;
+      // Memanggil Worker di src/index.js — GEMINI_API_KEY tersimpan sebagai
+      // secret di server, tidak pernah ada di kode frontend ini.
       const response = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, transcript: fullText, provider })
+        body: JSON.stringify({ title, transcript: fullText })
       });
       const data = await response.json();
       if(!response.ok){
@@ -768,8 +761,12 @@
       }
       renderNotulen(data);
     }catch(err){
-      const providerKeyName = { anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY' }[el.aiProviderSelect.value] || 'API key';
-      el.notulenContent.innerHTML = `<p class="notulen-empty notulen-error">Gagal menyusun notulen otomatis: ${(err && err.message) ? err.message : 'terjadi kesalahan.'} Pastikan ${providerKeyName} sudah diatur di environment variables Cloudflare Pages.</p>`;
+      const msg = (err && err.message) ? err.message : 'terjadi kesalahan.';
+      const p = document.createElement('p');
+      p.className = 'notulen-empty notulen-error';
+      p.textContent = `Gagal menyusun notulen otomatis: ${msg} Pastikan GEMINI_API_KEY sudah diatur di Settings > Variables and secrets pada Worker.`;
+      el.notulenContent.innerHTML = '';
+      el.notulenContent.appendChild(p);
     }finally{
       el.summarizeBtn.disabled = false;
       el.summarizeBtn.textContent = 'Buat Notulen Rapat';
